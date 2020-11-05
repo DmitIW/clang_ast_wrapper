@@ -214,9 +214,9 @@ class BaseNode(object):
             target_file = sys.stdout
 
         print(self, file=target_file)
-        print(f"{offset}[")
+        print(f"{offset}[", file=target_file)
         for i in range(0, len(self)):
             self._index[i].show(offset + offset_block, offset_block, target_file)
-        print(f"{offset}]")
+        print(f"{offset}]", file=target_file)
 
         self._pretty_print_offset = prev_offset

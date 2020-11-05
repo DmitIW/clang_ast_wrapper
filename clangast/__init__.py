@@ -9,8 +9,9 @@ from clangast.algorithms.parsing import (
 from clangast.algorithms.__utility__ import __init_clang__
 
 __default_path_to_library = "/usr/lib/libclang.so"
+__file_with_path = "clangast/path_to_so.txt"
 
-__init_clang__(__default_path_to_library)
+__init_clang__(__file_with_path, __default_path_to_library)
 
 __all__ = [
     "Node", "Tree",

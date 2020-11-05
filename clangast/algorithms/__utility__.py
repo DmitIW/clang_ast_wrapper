@@ -10,10 +10,17 @@ __CLANG_INIT__ = False
 from typing import List as __List__
 
 
-def __init_clang__(_path_to_lib: str):
+def __init_clang__(file_with_path: str, _path_to_lib: str):
     global __CLANG_INIT__
     if not __CLANG_INIT__:
-        __cursor_index__.Config.set_library_file(_path_to_lib)
+        try:
+            with open(file_with_path, 'r') as f:
+                __cursor_index__.Config.set_library_file(f.readlines()[0])
+
+        except Exception as e:
+            print(f"Error on init: {e}; Set to default: {_path_to_lib}")
+            __cursor_index__.Config.set_library_file(_path_to_lib)
+
         __CLANG_INIT__ = True
 
 
