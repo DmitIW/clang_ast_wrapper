@@ -20,6 +20,27 @@ __borders_index__ = {
 }
 
 
+class __MainGenerator__:
+    def __init__(self, token_generator: __Generator__[__cursor_index__.Token, __Any__, None]):
+        self.generator = token_generator
+        self.tokens = []
+
+    def __next__(self):
+        for token in self.generator:
+            while len(self.tokens) != 0:
+                return self.tokens.pop()
+            return token
+
+    def __iter__(self):
+        for t in self.generator:
+            while len(self.tokens) != 0:
+                yield self.tokens.pop()
+            yield t
+
+    def stack(self, value: __cursor_index__):
+        self.tokens.append(value)
+
+
 def __element_pretty_format__(element: __Union__[__cursor_index__.Cursor,
                                                  __cursor_index__.Token],
                               preamble: str = None) -> str:
@@ -31,47 +52,33 @@ def __element_pretty_format__(element: __Union__[__cursor_index__.Cursor,
 
 
 def __mismatch_spelling__(_token: __cursor_index__.Token, _spelling: str) -> bool:
-    return not _token.spelling == _spelling
+    if _token is not None:
+        return not _token.spelling == _spelling
+    return True
 
 
-def __parse_statement_stacked_generator__(token_generator: __Generator__[__cursor_index__.Token,
-                                                                         __Any__,
-                                                                         None]
+def __parse_statement_stacked_generator__(token_generator: __MainGenerator__
                                           ) -> __Generator__[__Node__, __Any__, None]:
-    def __stacking__(_token_generator: __Generator__[__cursor_index__.Token,
-                                                     __Any__,
-                                                     None],
-                     *tokens):
-        for _token in tokens:
-            yield _token
-        for _token in _token_generator:
-            yield _token
-
     # statement type: in brackets or single line
     token = next(token_generator)
 
-    stacked_generator = __partial__(__stacking__, token_generator)
     close_token = '}'
 
     if __mismatch_spelling__(token, '{'):
         close_token = ';'
-        stacked_generator = __partial__(stacked_generator, token)
+        token_generator.stack(token)
 
     parser = __partial__(__parse_statement_to_stop_token__, close_token)
     for _node in filter(__not_none__,
-                        parser(
-                            (token for token in stacked_generator())
-                        )):
+                        parser(token_generator)):
         yield _node
 
 
 def __parse_statement_to_stop_token__(stop_token_spelling: str,
-                                      token_generator: __Generator__[__cursor_index__.Token,
-                                                                     __Any__,
-                                                                     None]) -> __Generator__[__Node__,
-                                                                                             __Any__,
-                                                                                             None]:
-    for token in token_generator:
+                                      token_generator: __MainGenerator__) -> __Generator__[__Node__,
+                                                                                           __Any__,
+                                                                                           None]:
+    for token in filter(__not_none__, token_generator):
         if token.spelling == stop_token_spelling:
             break
         node = __kind_switch__(token, token_generator)
@@ -80,9 +87,7 @@ def __parse_statement_to_stop_token__(stop_token_spelling: str,
     yield None
 
 
-def __gathering_tokens_between_borders__(token_generator: __Generator__[__cursor_index__.Token,
-                                                                        __Any__,
-                                                                        None],
+def __gathering_tokens_between_borders__(token_generator: __MainGenerator__,
                                          close_token_spelling: str) -> __Generator__[__cursor_index__.Token,
                                                                                      __Any__,
                                                                                      None]:
@@ -92,7 +97,7 @@ def __gathering_tokens_between_borders__(token_generator: __Generator__[__cursor
     open_token_spelling = __borders_index__[close_token_spelling]
     inner_open_borders = 0
 
-    for token in token_generator:
+    for token in filter(__not_none__, token_generator):
         if token.spelling == open_token_spelling:
             inner_open_borders += 1
 
@@ -106,9 +111,7 @@ def __gathering_tokens_between_borders__(token_generator: __Generator__[__cursor
 
 
 def __parse_id__(token: __cursor_index__.Token,
-                 token_generator: __Generator__[__cursor_index__.Token,
-                                                __Any__,
-                                                None]
+                 token_generator: __MainGenerator__
                  ) -> __Node__:
     node = __Node__(token.spelling, token.cursor.kind)
     node.store(
@@ -120,9 +123,7 @@ def __parse_id__(token: __cursor_index__.Token,
 
 
 def __parse_if_case__(token: __cursor_index__.Token,
-                      token_generator: __Generator__[__cursor_index__.Token,
-                                                     __Any__,
-                                                     None]
+                      token_generator: __MainGenerator__
                       ) -> __Node__:
     # set "if" as name for node
     node = __Node__(token.spelling, token.cursor.kind)
@@ -143,6 +144,7 @@ def __parse_if_case__(token: __cursor_index__.Token,
     # else
     token = next(token_generator)
     if __mismatch_spelling__(token, "else"):
+        token_generator.stack(token)
         return node
     node.add(__parse_else__(token, token_generator))
 
@@ -150,9 +152,7 @@ def __parse_if_case__(token: __cursor_index__.Token,
 
 
 def __parse_else__(token: __cursor_index__.Token,
-                   tokens_generator: __Generator__[__cursor_index__.Token,
-                                                   __Any__,
-                                                   None]) -> __Node__:
+                   tokens_generator: __MainGenerator__) -> __Node__:
     node = __Node__(token.spelling, token.cursor.kind)
     for _node in __parse_statement_stacked_generator__(tokens_generator):
         node.add(_node)
@@ -160,9 +160,7 @@ def __parse_else__(token: __cursor_index__.Token,
 
 
 def __parse_switch_case__(token: __cursor_index__.Token,
-                          token_generator: __Generator__[__cursor_index__.Token,
-                                                         __Any__,
-                                                         None]
+                          token_generator: __MainGenerator__
 
                           ) -> __Node__:
     node = __Node__(token.spelling, token.cursor.kind)
@@ -179,9 +177,7 @@ def __parse_switch_case__(token: __cursor_index__.Token,
 
 
 def __parse_return__(token: __cursor_index__.Token,
-                     token_generator: __Generator__[__cursor_index__.Token,
-                                                    __Any__,
-                                                    None]
+                     token_generator: __MainGenerator__
 
                      ) -> __Node__:
     node = __Node__(token.spelling, token.cursor.kind)
@@ -194,9 +190,7 @@ def __parse_return__(token: __cursor_index__.Token,
 
 
 def __keyword_case__(token: __cursor_index__.Token,
-                     token_generator: __Generator__[__cursor_index__.Token,
-                                                    __Any__,
-                                                    None]
+                     token_generator: __MainGenerator__
 
                      ) -> __Union__[__Node__, None]:
     name = token.spelling
@@ -211,17 +205,13 @@ def __keyword_case__(token: __cursor_index__.Token,
 
 
 def __id_case__(token: __cursor_index__.Token,
-                token_generator: __Generator__[__cursor_index__.Token,
-                                               __Any__,
-                                               None]
+                token_generator: __MainGenerator__
                 ) -> __Node__:
     return __parse_id__(token, token_generator)
 
 
 def __kind_switch__(token: __cursor_index__.Token,
-                    token_generator: __Generator__[__cursor_index__.Token,
-                                                   __Any__,
-                                                   None]
+                    token_generator: __MainGenerator__
                     ) -> __Union__[__Node__, None]:
     kind = token.kind
     if kind == __token_kind__.IDENTIFIER:
@@ -232,11 +222,9 @@ def __kind_switch__(token: __cursor_index__.Token,
         return None
 
 
-def __parse_statement_generator__(token_generator: __Generator__[__cursor_index__.Token,
-                                                                 __Any__,
-                                                                 None]) -> __Generator__[__Node__,
-                                                                                         __Any__,
-                                                                                         None]:
+def __parse_statement_generator__(token_generator: __MainGenerator__) -> __Generator__[__Node__,
+                                                                                       __Any__,
+                                                                                       None]:
     for token in token_generator:
         node = __kind_switch__(token, token_generator)
         if node is not None:
@@ -244,15 +232,13 @@ def __parse_statement_generator__(token_generator: __Generator__[__cursor_index_
     yield None
 
 
-def __parse_function_body__(main_generator: __Generator__[__cursor_index__.Token,
-                                                          __Any__,
-                                                          None]) -> __Generator__[__Node__, __Any__, None]:
+def __parse_function_body__(main_generator: __MainGenerator__) -> __Generator__[__Node__, __Any__, None]:
     for node in __parse_statement_generator__(main_generator):
         yield node
 
 
 def __parse_function__(cursor: __cursor_index__.Cursor) -> __Tree__:
-    main_generator = cursor.get_tokens()
+    main_generator = __MainGenerator__(cursor.get_tokens())
 
     root_node = __Node__(cursor.spelling, cursor.kind)
     root_node.store(
