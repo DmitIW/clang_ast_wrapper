@@ -1,5 +1,5 @@
 from functools import partial as __partial__
-from ast_algorithms.algorithms.__utility__ import (
+from clangast.algorithms.__utility__ import (
     __all_as_kinds_generator__, __cursor_kind__,
     __not_none__, __token_kind__
 )

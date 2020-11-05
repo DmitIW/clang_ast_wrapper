@@ -1,4 +1,4 @@
-from ast_algorithms.data_structures.node import BaseNode
+from clangast.data_structures.node import BaseNode
 from typing import List, Union, DefaultDict
 from collections import defaultdict
 from functools import wraps

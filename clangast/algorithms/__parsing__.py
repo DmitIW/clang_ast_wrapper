@@ -1,9 +1,9 @@
 from typing import Union as __Union__
 from typing import Generator as __Generator__
 
-from ast_algorithms.data_structures.tree import BaseTree as __Tree__
-from ast_algorithms.data_structures.node import BaseNode as __Node__
-from ast_algorithms.algorithms.__utility__ import (
+from clangast.data_structures.tree import BaseTree as __Tree__
+from clangast.data_structures.node import BaseNode as __Node__
+from clangast.algorithms.__utility__ import (
     __not_none__, __cursor_kind__, __cursor_index__, __token_kind__
 )
 
