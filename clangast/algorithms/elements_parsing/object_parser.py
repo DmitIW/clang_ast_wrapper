@@ -1,5 +1,7 @@
 from typing import Generator, Any, NoReturn, Union, Callable
 
+from functools import wraps
+
 from clang.cindex import Cursor, Token, TokenKind
 
 from clangast.data_structures import StackingPipeline, Tree, Node
@@ -19,12 +21,39 @@ def expected_token(t: Token, spelling: str) -> NoReturn:
         raise parse_error(t)
 
 
+def none_object_error() -> RuntimeError:
+    return RuntimeError(
+        f"Argument of function is none"
+    )
+
+
 class ObjectParser(object):
     def __init__(self, cursor: Cursor):
         self.cursor: Cursor = cursor
         self.tokens_pipeline: StackingPipeline = StackingPipeline(self.cursor.get_tokens())
         self.result_tree: Tree = Tree()
 
+    @staticmethod
+    def _first_argument_none_check(method):
+        @wraps(method)
+        def __check__(self, f, *args, **kwargs):
+            if f is None:
+                raise none_object_error()
+            return method(self, f, *args, **kwargs)
+
+        return __check__
+
+    @staticmethod
+    def _second_argument_none_check(method):
+        @wraps(method)
+        def __check__(self, f, s, *args, **kwargs):
+            if s is None:
+                raise none_object_error()
+            return method(self, f, s, *args, **kwargs)
+
+        return __check__
+
+    @_first_argument_none_check.__get__(object)
     def _get_statement_as_pipeline(self, source: StackingPipeline,
                                    border_spelling: str, gathering_method: Callable) -> StackingPipeline:
         return StackingPipeline(
@@ -32,28 +61,31 @@ class ObjectParser(object):
                                          border_spelling))
         )
 
+    @_first_argument_none_check.__get__(object)
     def _get_statement_as_string(self, source: StackingPipeline,
                                  border_spelling: str, gathering_method: Callable) -> str:
         return " ".join((
             token.spelling for token in self._get_statement_as_pipeline(source, border_spelling, gathering_method)
         ))
 
+    @_first_argument_none_check.__get__(object)
     def _parse_statement(self, source: StackingPipeline) -> Generator[Node, Any, None]:
         t = source.pop()
         if mismatch_spelling(t, '{'):
-            source += t
+            self.tokens_pipeline += t
             tokens = self._get_statement_as_pipeline(source, ';', gathering_statement)
         else:
             tokens = self._get_statement_as_pipeline(source, '{', gathering_statement_open_spelling)
-        for node in self._parse_from(filter_none(tokens)):
+        for node in self._parse_from(tokens):
             yield node
 
+    @_second_argument_none_check.__get__(object)
     def _parse_if_case(self, token: Token, source: StackingPipeline) -> Node:
         node = Node(token.spelling, token.cursor.kind)
 
         t: Token = source.pop()
         expected_token(t, '(')
-        condition = self._get_statement_as_string(source, '(', gathering_statement)
+        condition = self._get_statement_as_string(source, '(', gathering_statement_open_spelling)
         node.store(condition)
 
         for _node in self._parse_statement(source):
@@ -61,7 +93,7 @@ class ObjectParser(object):
 
         t = source.pop()
         if mismatch_spelling(t, "else"):
-            source += t
+            self.tokens_pipeline += t
             return node
 
         else_node = Node(t.spelling, t.cursor.kind)
@@ -71,23 +103,25 @@ class ObjectParser(object):
 
         return node
 
+    @_second_argument_none_check.__get__(object)
     def _parse_switch_case(self, token: Token, source: StackingPipeline) -> Node:
         node = Node(token.spelling, token.cursor.kind)
 
         t = source.pop()
         expected_token(t, '(')
-        condition = self._get_statement_as_string(source, '(', gathering_statement)
+        condition = self._get_statement_as_string(source, '(', gathering_statement_open_spelling)
         node.store(condition)
 
         t = source.pop()
         expected_token(t, '{')
-        source += t
+        self.tokens_pipeline += t
 
         for _node in self._parse_statement(source):
             node.add(_node)
 
         return node
 
+    @_second_argument_none_check.__get__(object)
     def _parse_case_in_switch(self, token: Token, source: StackingPipeline) -> Node:
         name = self._get_statement_as_string(source, ':', gathering_tokens_until_border)
         full_name = f"{token.spelling}_{name}"
@@ -96,11 +130,11 @@ class ObjectParser(object):
         for token in source:
             spelling = token.spelling
             if spelling == "case":
-                source += token
+                self.tokens_pipeline += token
                 node.store("fall_trough")
                 return node
             elif spelling == "default":
-                source += token
+                self.tokens_pipeline += token
                 node.store("fall_trough")
                 return node
             elif spelling == "break":
@@ -112,11 +146,14 @@ class ObjectParser(object):
                 node.add(return_node)
                 return node
             else:
+                print(f"{token.spelling}")
+                self.tokens_pipeline += token
                 for _node in self._parse_statement(source):
                     node.add(node)
 
         expected_token(token, "end_of_case")
 
+    @_second_argument_none_check.__get__(object)
     def _parse_default_in_switch(self, token: Token, source: StackingPipeline) -> Node:
         node = Node(token.spelling, token.cursor.kind)
         t = source.pop()
@@ -132,19 +169,22 @@ class ObjectParser(object):
             node.add(return_node)
             return node
         else:
+            self.tokens_pipeline += token
             for _node in self._parse_statement(source):
                 node.add(node)
 
         expected_token(token, "end_of_default_case")
 
+    @_second_argument_none_check.__get__(object)
     def _parse_return_case(self, token: Token, source: StackingPipeline) -> Node:
         node = Node(token.spelling, token.cursor.kind)
         what = self._get_statement_as_string(source, ';', gathering_tokens_until_border)
         node.store(what)
         return node
 
+    @_second_argument_none_check.__get__(object)
     def _parsing_keyword(self, token: Token, source: StackingPipeline) -> Union[Node, None]:
-        spelling = token.cursor.spelling
+        spelling = token.spelling
         if spelling == "if":
             return self._parse_if_case(token, source)
         elif spelling == "switch":
@@ -158,6 +198,7 @@ class ObjectParser(object):
         else:
             return None
 
+    @_second_argument_none_check.__get__(object)
     def _parsing_identifier(self, token: Token, source: StackingPipeline) -> Union[Node, None]:
         node = Node(token.spelling, token.cursor.kind)
         rest_of_line = self._get_statement_as_string(source, ';', gathering_tokens_until_border)
@@ -165,6 +206,7 @@ class ObjectParser(object):
 
         return node
 
+    @_first_argument_none_check.__get__(object)
     def _parse_from(self, source: StackingPipeline) -> Generator[Node, Any, None]:
         for token in filter_none(source):
             kind = token.kind

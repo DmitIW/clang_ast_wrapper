@@ -47,4 +47,4 @@ def gathering_statement(token_generator: EndlessPipeline,
 
 
 def mismatch_spelling(token: Token, spelling: str) -> bool:
-    return token.spelling == spelling
+    return token.spelling != spelling
