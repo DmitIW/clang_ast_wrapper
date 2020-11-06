@@ -94,6 +94,9 @@ class BaseTree(object):
         else:
             return f"Root name: {self._root.name()}\nRoot kind: {self._root.kind()}\n--------------------"
 
+    def root_name(self) -> str:
+        return self._root.name()
+
     def empty(self):
         return len(self) == 0
 

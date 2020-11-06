@@ -1,24 +1,8 @@
-from clangast.data_structures.tree import BaseTree as Tree
-from clangast.algorithms.utility import (
-    all_function_declarations_generator
-)
-from clangast.algorithms.__parsing__ import (
-    __parse_function__, __cursor_index__
-)
-
-from typing import List, Any, Generator
-
-TranslationUnit = __cursor_index__.TranslationUnit
+from clangast.algorithms.elements_parsing import UnitParser
+from clangast.algorithms.tools import get_translation_unit_index
 
 
-def get_translation_unit_index(path_to_file: str, **kwargs) -> TranslationUnit:
-    return __cursor_index__.Index.create().parse(path_to_file, **kwargs)
-
-
-def parse_translation_unit_generator(unit: TranslationUnit) -> Generator[Tree, Any, None]:
-    for function_declaration in all_function_declarations_generator(unit.cursor):
-        yield __parse_function__(function_declaration)
-
-
-def parse_translation_unit(unit: TranslationUnit) -> List[Tree]:
-    return list(parse_translation_unit_generator(unit))
+def parse_file(path_to_file: str, **kwargs) -> UnitParser:
+    parser = UnitParser(get_translation_unit_index(path_to_file, **kwargs))
+    parser.parse()
+    return parser

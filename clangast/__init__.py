@@ -1,19 +1,12 @@
-from clangast.data_structures.node import BaseNode as Node
-from clangast.data_structures.tree import BaseTree as Tree
+from clangast.data_structures import Tree, StackingPipeline
+from clangast.algorithms import parse_file
 
-from clangast.algorithms.parsing import (
-    get_translation_unit_index, parse_translation_unit,
-    parse_translation_unit_generator
-)
+from clangast.algorithms.tools import init_clang
 
-from clangast.algorithms.__utility__ import __init_clang__
+default_path_to_library = "/usr/lib/libclang.so"
 
-__default_path_to_library = "/usr/lib/libclang.so"
-
-__init_clang__(__default_path_to_library)
+init_clang(default_path_to_library)
 
 __all__ = [
-    "Node", "Tree",
-    "get_translation_unit_index", "parse_translation_unit",
-    "parse_translation_unit_generator"
+    "Tree", "StackingPipeline", "parse_file"
 ]
